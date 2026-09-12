@@ -163,7 +163,7 @@ body.hide-zone-hints .mini-drop-zone.over { border-color:var(--primary); }
 
     <div class="settings-section">
       <h2 style="margin-top:0">版本資訊</h2>
-      <div class="setting-row"><div class="label">目前版本<small id="currentVersionLabel">v1.0.0</small></div><button class="btn btn-outlined btn-sm" id="checkUpdateBtn">檢查更新</button></div>
+      <div class="setting-row"><div class="label">目前版本<small id="currentVersionLabel">v1.0.1</small></div><button class="btn btn-outlined btn-sm" id="checkUpdateBtn">檢查更新</button></div>
       <div id="updateCheckStatus" class="hint" style="margin-bottom:8px"></div>
       <div class="row" id="forceReloadRow" style="display:none"><button class="btn btn-filled" id="forceReloadBtn">重新載入最新版本</button></div>
       <p class="hint">iOS 加到主畫面的網頁沒有下拉重新整理。發布新版本後，可來這裡檢查更新並重新載入。</p>
@@ -228,8 +228,8 @@ body.hide-zone-hints .mini-drop-zone.over { border-color:var(--primary); }
 'use strict';
 
 /* ---------- App/version ---------- */
-const APP_VERSION = '1.0.0';
-const PLAY_ICON = '▶';
+var APP_VERSION = '1.0.1';
+var PLAY_ICON = '▶';
 document.getElementById('currentVersionLabel').textContent = 'v' + APP_VERSION;
 
 document.getElementById('checkUpdateBtn').onclick = async function () {
@@ -738,7 +738,7 @@ function derangement(n) {
   return a;
 }
 
-/* ---------- Immediate Pointer Events drag ---------- */
+/* ---------- Immediate Pointer Events drag (with re-entrancy guard) ---------- */
 function zoneAtPoint(x, y, targetBox) {
   var zones = targetBox.querySelectorAll('.mini-drop-zone:not(.filled)');
   for (var i = zones.length - 1; i >= 0; i--) {
@@ -750,20 +750,38 @@ function zoneAtPoint(x, y, targetBox) {
 function bindPointerDrag(piece, opts) {
   var targetBox = opts.targetBox, onDrop = opts.onDrop, onMiss = opts.onMiss;
   var active = false, pid = null, ghost = null, highlight = null;
+
+  function removeGhost() {
+    if (ghost) { ghost.remove(); ghost = null; }
+  }
   function clearHighlight() { if (highlight) { highlight.classList.remove('over'); highlight = null; } }
   function cleanup() {
     active = false;
+    pid = null;
     piece.classList.remove('dragging-source');
     clearHighlight();
-    if (ghost) { ghost.remove(); ghost = null; }
+    removeGhost();
   }
+
   piece.addEventListener('pointerdown', function (e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+    // Guard: ignore a second pointerdown while this piece is already being dragged.
+    // Without this, a duplicate/re-entrant pointerdown (which can happen on iOS with
+    // multitouch or stylus+finger) would overwrite the `ghost` reference and leave the
+    // previous floating copy permanently stuck in the DOM ("card stuck" bug).
+    if (active) return;
+
     e.preventDefault();
     active = true;
     pid = e.pointerId;
-    piece.setPointerCapture(pid);
+
+    try { piece.setPointerCapture(pid); } catch (err) { /* ignore */ }
     piece.classList.add('dragging-source');
+
+    // Defensive: clear any orphaned ghost that might exist from an earlier failed drag.
+    removeGhost();
+
     ghost = piece.cloneNode(true);
     ghost.className = 'drag-ghost';
     ghost.removeAttribute('draggable');
@@ -772,6 +790,7 @@ function bindPointerDrag(piece, opts) {
     ghost.style.top = e.clientY + 'px';
     document.body.appendChild(ghost);
   });
+
   piece.addEventListener('pointermove', function (e) {
     if (!active || e.pointerId !== pid) return;
     e.preventDefault();
@@ -782,6 +801,7 @@ function bindPointerDrag(piece, opts) {
     highlight = next;
     if (highlight) highlight.classList.add('over');
   });
+
   function finish(e) {
     if (!active || e.pointerId !== pid) return;
     e.preventDefault();
@@ -792,6 +812,12 @@ function bindPointerDrag(piece, opts) {
   }
   piece.addEventListener('pointerup', finish);
   piece.addEventListener('pointercancel', function (e) {
+    if (active && e.pointerId === pid) cleanup();
+  });
+  piece.addEventListener('lostpointercapture', function (e) {
+    // Extra safety net: if the browser drops pointer capture unexpectedly
+    // (can happen on iOS Safari during scroll conflicts), still clean up
+    // instead of leaving a stuck ghost/highlight behind.
     if (active && e.pointerId === pid) cleanup();
   });
 }
@@ -889,10 +915,15 @@ function createPuzzleWidget(char, onSolved) {
     piece.style.borderColor = r.color;
     piece.innerHTML = thumb(r, r.color);
 
+    // Guard against a piece being processed twice (e.g. a stray duplicate
+    // drop event firing after the piece has already been placed).
+    var alreadyPlaced = false;
+
     bindPointerDrag(piece, {
       targetBox: target,
       onMiss: function () { status.textContent = '位置不對，再試一次'; },
       onDrop: function (zone) {
+        if (alreadyPlaced) return;
         var targetIndex = Number(zone.dataset.index);
         var targetRect = rects[targetIndex];
         var draggedRect = rects[i];
@@ -900,6 +931,7 @@ function createPuzzleWidget(char, onSolved) {
         var interchangeable = SWAPPABLE[targetRect.shape] && draggedRect.shape === targetRect.shape;
         if (!exact && !interchangeable) { status.textContent = '位置不對，再試一次'; return; }
 
+        alreadyPlaced = true;
         entry.groups[targetIndex].d.forEach(function (d) {
           var p = document.createElementNS(NS, 'path');
           p.setAttribute('d', d);
