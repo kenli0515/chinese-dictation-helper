@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>繁體漢字拼圖學習機</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary:#6750A4; --on-primary:#ffffff; --primary-container:#EADDFF; --on-primary-container:#21005D;
+  --surface:#FFFBFE; --on-surface:#1C1B1F; --surface-variant:#E7E0EC; --on-surface-variant:#49454F;
+  --outline:#79747E; --background:#F6F2FA; --error:#B3261E; --success:#2e7d32;
+  --elev1: 0 1px 2px rgba(0,0,0,.30), 0 1px 3px 1px rgba(0,0,0,.15);
+  --elev2: 0 1px 2px rgba(0,0,0,.30), 0 2px 6px 2px rgba(0,0,0,.15);
+  --elev3: 0 4px 8px 3px rgba(0,0,0,.15), 0 1px 3px rgba(0,0,0,.3);
+}
+html.dark {
+  --primary:#D0BCFF; --on-primary:#381E72; --primary-container:#4F378B; --on-primary-container:#EADDFF;
+  --surface:#1C1B1F; --on-surface:#E6E1E5; --surface-variant:#49454F; --on-surface-variant:#CAC4D0;
+  --outline:#938F99; --background:#141317; --error:#F2B8B5; --success:#7BC67E;
+}
+* { box-sizing:border-box; }
+body {
+  font-family:"Noto Sans TC","Roboto",sans-serif;
+  background:var(--background); color:var(--on-surface);
+  margin:0; padding:20px; transition:background .3s, color .3s;
+}
+h1 { font-size:22px; font-weight:700; margin:0; }
+.topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; gap:12px; }
+.topbar-actions { display:flex; align-items:center; gap:8px; }
+.switch { position:relative; display:inline-block; width:52px; height:30px; flex-shrink:0; }
+.switch input { opacity:0; width:0; height:0; }
+.slider { position:absolute; cursor:pointer; inset:0; background:var(--surface-variant); border-radius:30px; transition:.3s; }
+.slider::before { content:""; position:absolute; height:22px; width:22px; left:4px; top:4px; background:var(--surface); border-radius:50%; transition:.3s; box-shadow:var(--elev1); }
+.switch input:checked + .slider { background:var(--primary); }
+.switch input:checked + .slider::before { transform:translateX(22px); background:var(--on-primary); }
+.setting-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+.setting-row .label { font-size:14px; }
+.setting-row .label small { display:block; color:var(--on-surface-variant); font-size:12px; margin-top:2px; }
+
+.range-slider { width:100%; -webkit-appearance:none; height:6px; border-radius:4px; background:var(--surface-variant); outline:none; margin:14px 0 6px; }
+.range-slider::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:var(--primary); cursor:pointer; box-shadow:var(--elev1); }
+.range-slider::-moz-range-thumb { width:22px; height:22px; border-radius:50%; background:var(--primary); cursor:pointer; border:none; box-shadow:var(--elev1); }
+.range-labels { display:flex; justify-content:space-between; font-size:12px; color:var(--on-surface-variant); }
+.range-labels span.active { color:var(--primary); font-weight:700; }
+
+.card { background:var(--surface); color:var(--on-surface); border-radius:16px; padding:18px 20px; box-shadow:var(--elev1); margin-bottom:16px; }
+.card h2 { font-size:15px; font-weight:500; margin:0 0 12px; color:var(--on-surface-variant); }
+
+.field { width:100%; padding:10px 14px; border-radius:8px; border:1px solid var(--outline); background:transparent; color:var(--on-surface); font-size:15px; font-family:inherit; }
+.field:focus { outline:2px solid var(--primary); border-color:var(--primary); }
+
+.btn { border:none; border-radius:20px; padding:10px 22px; font-size:14px; font-weight:500; font-family:inherit; cursor:pointer; transition:box-shadow .2s, filter .2s; }
+.btn-filled { background:var(--primary); color:var(--on-primary); box-shadow:var(--elev1); }
+.btn-filled:hover { filter:brightness(1.08); box-shadow:var(--elev2); }
+.btn-outlined { background:transparent; color:var(--primary); border:1px solid var(--outline); }
+.btn-outlined:hover { background:var(--primary-container); }
+.btn-text { background:transparent; color:var(--primary); border:none; padding:8px 12px; }
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+.btn-sm { padding:6px 14px; font-size:12px; border-radius:14px; }
+.btn-play-icon { font-size:10px; margin-right:2px; }
+.icon-btn { width:40px; height:40px; border-radius:50%; border:none; background:transparent; color:var(--on-surface-variant); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:18px; position:relative; flex-shrink:0; }
+.icon-btn:hover { background:var(--surface-variant); }
+.icon-btn.danger:hover { background:#fdecea; color:var(--error); }
+.icon-btn.small { width:34px; height:34px; font-size:15px; }
+
+.row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+/* 每個詞一個區塊：詞頭 + 橫向拼圖列 */
+.word-block { margin-bottom:28px; }
+.word-block:last-child { margin-bottom:0; }
+.word-header { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+.word-header .word-text { font-size:24px; font-weight:700; margin-right:6px; letter-spacing:2px; }
+.word-header .word-text .char-hidden { color:var(--on-surface-variant); font-weight:400; }
+
+.puzzle-strip { display:flex; gap:18px; overflow-x:auto; padding:4px 2px 12px; }
+.puzzle-widget { flex:0 0 auto; width:190px; text-align:center; background:var(--surface); border-radius:14px; padding:10px; box-shadow:var(--elev1); }
+.puzzle-widget-label { display:flex; align-items:center; justify-content:center; gap:8px; font-size:16px; font-weight:700; margin-bottom:8px; min-height:24px; }
+.puzzle-widget-label .char-slot { min-width:24px; letter-spacing:2px; }
+.puzzle-widget-label .char-slot.hidden-answer { color:var(--on-surface-variant); font-weight:400; }
+
+.mini-target-box { position:relative; width:160px; height:160px; margin:0 auto; border-radius:12px; border:2px solid var(--outline); background:var(--background); }
+.mini-target-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.mini-drop-zone { position:absolute; border:2px dashed var(--outline); box-sizing:border-box; border-radius:4px; transition:border-color .3s, background .3s; }
+.mini-drop-zone.over { background:rgba(103,80,164,0.18); border-color:var(--primary); }
+.mini-drop-zone.filled { border-color:transparent; background:transparent; pointer-events:none; }
+body.hide-zone-hints .mini-drop-zone { border-color:transparent; }
+body.hide-zone-hints .mini-drop-zone.over { border-color:var(--primary); }
+body.hide-zone-hints .mini-drop-zone.filled { border-color:transparent; }
+
+.mini-tray { display:flex; gap:6px; justify-content:center; margin-top:10px; flex-wrap:wrap; }
+.mini-piece { width:40px; height:40px; border-radius:8px; border:2px solid #333; background:var(--surface); cursor:grab; box-shadow:var(--elev1); }
+.mini-piece svg { width:100%; height:100%; display:block; }
+.mini-status { font-size:12px; margin-top:6px; min-height:16px; color:var(--on-surface-variant); }
+.mini-correct-flash { animation: flash 0.6s; }
+@keyframes flash { 0%{ box-shadow: inset 0 0 0 999px rgba(46,125,50,.35); } 100%{ box-shadow: inset 0 0 0 999px transparent; } }
+
+/* 生字批次管理 */
+.batch-item { border-radius:14px; border:1px solid var(--surface-variant); padding:12px 14px; margin-bottom:12px; }
+.batch-row-top { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+.batch-row-top input[type=checkbox] { width:18px; height:18px; accent-color:var(--primary); flex-shrink:0; }
+.batch-name-input { flex:1; font-weight:700; font-size:15px; border:1px solid transparent; background:transparent; padding:6px 8px; border-radius:8px; }
+.batch-name-input:hover { background:var(--surface-variant); }
+.batch-name-input:focus { border-color:var(--primary); background:var(--surface); outline:none; }
+.batch-meta { font-size:12px; color:var(--on-surface-variant); margin:2px 0 8px 30px; }
+.batch-words { display:flex; gap:6px; flex-wrap:wrap; margin-left:30px; }
+.batch-word-chip { font-size:13px; padding:3px 10px; border-radius:12px; background:var(--surface-variant); color:var(--on-surface); }
+.batch-item.hidden-batch { opacity:.5; }
+
+#dataStatus { font-size:13px; color:var(--on-surface-variant); }
+#progressBar { width:100%; max-width:280px; height:8px; background:var(--surface-variant); border-radius:5px; overflow:hidden; display:none; margin-top:8px; }
+#progressFill { height:100%; width:0%; background:var(--primary); transition:width .2s; }
+.hint { font-size:12px; color:var(--on-surface-variant); line-height:1.6; }
+.warn { color:var(--error); font-size:13px; }
+.empty-tip { color:var(--on-surface-variant); font-size:14px; padding:8px 0; }
+
+.overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:100; padding:20px; }
+.overlay.open { display:flex; }
+.dialog { background:var(--surface); color:var(--on-surface); border-radius:20px; box-shadow:var(--elev3); width:100%; max-width:480px; max-height:85vh; overflow-y:auto; padding:24px; }
+.dialog-wide { max-width:640px; }
+.dialog-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.dialog-header h3 { margin:0; font-size:18px; font-weight:700; }
+.settings-section { margin-bottom:18px; padding-bottom:18px; border-bottom:1px solid var(--surface-variant); }
+.settings-section:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+
+.cache-row { display:flex; align-items:center; gap:10px; padding:10px 8px; border-radius:10px; border-bottom:1px solid var(--surface-variant); }
+.cache-row:hover { background:var(--surface-variant); }
+.cache-row .meta { flex:1; }
+.cache-row .meta .w { font-size:16px; font-weight:500; }
+.cache-row .meta .m { font-size:12px; color:var(--on-surface-variant); }
+.lang-badge { font-size:11px; padding:2px 8px; border-radius:10px; background:var(--primary-container); color:var(--on-primary-container); margin-right:6px; }
+.summary-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; font-size:13px; color:var(--on-surface-variant); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>繁體漢字拼圖學習機</h1>
+  <div class="topbar-actions">
+    <button class="btn btn-filled" id="openManageWords">➕ 管理生字</button>
+    <button class="icon-btn" id="openSettings" title="設定">⚙️</button>
+  </div>
+</div>
+
+<div class="card">
+  <div id="mainWordList"></div>
+</div>
+
+<!-- 管理生字彈窗 -->
+<div class="overlay" id="manageWordsOverlay">
+  <div class="dialog dialog-wide">
+    <div class="dialog-header">
+      <h3>管理生字</h3>
+      <button class="icon-btn small" id="closeManageWords">✕</button>
+    </div>
+    <h2 style="margin-top:0;">新增一批生字（可一次貼多個，用空格分隔，會成為一個新批次）</h2>
+    <div class="row" style="margin-bottom:20px;">
+      <input type="text" id="wordInput" class="field" style="flex:1;min-width:200px;" placeholder="例如：愛心 學校 朋友" onkeydown="if(event.key==='Enter'){document.getElementById('addWord').click();}">
+      <button class="btn btn-filled" id="addWord">加入為新批次</button>
+    </div>
+    <h2>已匯入的批次（勾選可在主頁顯示／隱藏整批，名稱可點擊修改）</h2>
+    <div id="manageWordListWrap"></div>
+  </div>
+</div>
+
+<!-- 設定彈窗 -->
+<div class="overlay" id="settingsOverlay">
+  <div class="dialog">
+    <div class="dialog-header">
+      <h3>設定</h3>
+      <button class="icon-btn small" id="closeSettings">✕</button>
+    </div>
+
+    <div class="settings-section">
+      <h2 style="margin-top:0;">外觀</h2>
+      <div class="setting-row">
+        <div class="label">深色模式</div>
+        <label class="switch">
+          <input type="checkbox" id="themeToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h2>遊戲難度</h2>
+      <div class="setting-row">
+        <div class="label">顯示格線提示<small>關閉後，拼圖格子不會用虛線畫出字的結構輪廓，難度較高</small></div>
+        <label class="switch">
+          <input type="checkbox" id="hintToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="label" style="margin-top:16px;">拼圖拆解方式<small id="difficultyDesc">拆部件：依字的結構（上下／左右／包圍）拆成 2～3 大塊</small></div>
+      <input type="range" id="difficultySlider" class="range-slider" min="0" max="2" step="1" value="0">
+      <div class="range-labels">
+        <span id="labelComponent">拆部件（簡單）</span>
+        <span id="labelMid">拆次部件（中等）</span>
+        <span id="labelStroke">拆筆畫（最難）</span>
+      </div>
+      <p class="hint">拆次部件：把部件再往下拆一層，例如某個部件本身也是上下或左右結構，就會再切成更小的兩塊；如果這個部件已經拆不下去了，就維持原樣，不會硬拆。橫、豎、點這幾種長得像的碎片在任何難度下都視為同類可互換。</p>
+    </div>
+
+    <div class="settings-section">
+      <h2>資料備份與還原</h2>
+      <p class="hint">匯出會產生一個 JSON 檔，內含目前的生字批次與 API Key，方便換瀏覽器/換裝置時還原設定。</p>
+      <div class="row">
+        <button class="btn btn-outlined" id="exportData">匯出資料（JSON）</button>
+        <button class="btn btn-outlined" id="importData">匯入資料（JSON）</button>
+        <input type="file" id="importFileInput" accept="application/json" style="display:none;">
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h2>Google Cloud TTS API Key</h2>
+      <div class="row" style="margin-bottom:10px;">
+        <input type="text" id="apiKey" class="field" style="flex:1;min-width:200px;" placeholder="貼上你的 API Key">
+      </div>
+      <div class="row" style="margin-bottom:16px;">
+        <button class="btn btn-filled" id="saveKey">儲存 Key</button>
+      </div>
+      <p class="warn">⚠️ 這個 Key 會出現在網頁原始碼中，請到 Google Cloud Console 把它限制為「HTTP 參照網址」只允許你的 xxx.github.io 網域，只勾選 Cloud Text-to-Speech API 權限，並設定每日配額上限。</p>
+    </div>
+
+    <div class="settings-section">
+      <h2>語音音色</h2>
+      <p class="hint">目前使用 Chirp 3: HD 女聲（Google 最新、最自然的音色等級）：<br>普通話 cmn-CN-Chirp3-HD-Achernar／廣東話 yue-HK-Chirp3-HD-Achernar。<br>粵語 Chirp 3: HD 目前為 Google Preview 階段，穩定性略遜正式版，如遇問題可再切回 Standard 音色。</p>
+    </div>
+
+    <div class="settings-section">
+      <h2>字庫資料</h2>
+      <div id="dataStatus">正在檢查本機字庫快取…</div>
+      <div id="progressBar"><div id="progressFill"></div></div>
+      <div class="row" style="margin-top:10px;">
+        <button class="btn btn-outlined" id="clearCache">清除字庫快取（dictionary/graphics）</button>
+      </div>
+      <p class="hint">字庫快取清除後，下次開啟需要重新讀取 data/dictionary.txt / data/graphics.txt（約 32MB）。</p>
+    </div>
+
+    <div class="settings-section">
+      <h2>語音快取</h2>
+      <div class="summary-bar">
+        <span id="cacheSummaryInline">共 0 筆，0 KB</span>
+        <button class="btn btn-outlined" id="openCacheManager">管理語音快取</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 語音快取管理彈窗 -->
+<div class="overlay" id="cacheManagerOverlay">
+  <div class="dialog dialog-wide">
+    <div class="dialog-header">
+      <h3>語音快取管理</h3>
+      <button class="icon-btn small" id="closeCacheManager">✕</button>
+    </div>
+    <div class="summary-bar">
+      <span id="cacheSummary">共 0 筆，0 KB</span>
+      <button class="btn btn-outlined" id="clearAllTtsCache">清空全部語音快取</button>
+    </div>
+    <div id="cacheListWrap"></div>
+  </div>
+</div>
+
+<script>
+// ===================== 語音音色設定 =====================
+const LANG_MANDARIN = 'cmn-CN';
+const VOICE_MANDARIN = 'cmn-CN-Chirp3-HD-Achernar';
+const LANG_CANTONESE = 'yue-HK';
+const VOICE_CANTONESE = 'yue-HK-Chirp3-HD-Achernar';
+const PLAY_ICON = '▶';
+
+// ===================== 主題切換 =====================
+const themeToggle = document.getElementById('themeToggle');
+const savedTheme = localStorage.getItem('theme') || 'light';
+if (savedTheme === 'dark') { document.documentElement.classList.add('dark'); themeToggle.checked = true; }
+themeToggle.onchange = () => {
+  document.documentElement.classList.toggle('dark', themeToggle.checked);
+  localStorage.setItem('theme', themeToggle.checked ? 'dark' : 'light');
+};
+
+// ===================== 格線提示開關（難度設定）=====================
+const hintToggle = document.getElementById('hintToggle');
+const savedShowHints = localStorage.getItem('showZoneHints');
+const showHints = savedShowHints === null ? true : savedShowHints === 'true';
+hintToggle.checked = showHints;
+document.body.classList.toggle('hide-zone-hints', !showHints);
+hintToggle.onchange = () => {
+  const show = hintToggle.checked;
+  document.body.classList.toggle('hide-zone-hints', !show);
+  localStorage.setItem('showZoneHints', String(show));
+};
+
+// ===================== 拆解難度：拆部件 / 拆次部件 / 拆筆畫 =====================
+const DIFFICULTY_LEVELS = ['component', 'mid', 'stroke'];
+const DIFFICULTY_DESC = {
+  component: '拆部件：依字的結構（上下／左右／包圍）拆成 2～3 大塊',
+  mid: '拆次部件：把部件再往下拆一層，切得比部件細、但不到單一筆畫',
+  stroke: '拆筆畫：把整個字拆成每一筆獨立的碎片，長得像的橫／豎／點可互換，難度最高',
+};
+let difficultyLevel = localStorage.getItem('difficultyLevel') || 'component';
+if (!DIFFICULTY_LEVELS.includes(difficultyLevel)) difficultyLevel = 'component';
+
+const difficultySlider = document.getElementById('difficultySlider');
+difficultySlider.value = DIFFICULTY_LEVELS.indexOf(difficultyLevel);
+
+function updateDifficultyUI() {
+  document.getElementById('difficultyDesc').textContent = DIFFICULTY_DESC[difficultyLevel];
+  document.getElementById('labelComponent').classList.toggle('active', difficultyLevel === 'component');
+  document.getElementById('labelMid').classList.toggle('active', difficultyLevel === 'mid');
+  document.getElementById('labelStroke').classList.toggle('active', difficultyLevel === 'stroke');
+}
+updateDifficultyUI();
+
+difficultySlider.oninput = () => {
+  difficultyLevel = DIFFICULTY_LEVELS[Number(difficultySlider.value)];
+  localStorage.setItem('difficultyLevel', difficultyLevel);
+  updateDifficultyUI();
+  renderMainWordList();
+};
+
+// ===================== 彈窗開關 =====================
+function wireOverlay(overlayId, openBtnId, closeBtnId, onOpen) {
+  const overlay = document.getElementById(overlayId);
+  if (openBtnId) document.getElementById(openBtnId).onclick = () => { if (onOpen) onOpen(); overlay.classList.add('open'); };
+  document.getElementById(closeBtnId).onclick = () => overlay.classList.remove('open');
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.classList.remove('open'); };
+}
+wireOverlay('settingsOverlay', 'openSettings', 'closeSettings', () => renderCacheSummaryInline());
+wireOverlay('cacheManagerOverlay', 'openCacheManager', 'closeCacheManager', () => renderCacheManager());
+wireOverlay('manageWordsOverlay', 'openManageWords', 'closeManageWords', () => renderManageWordList());
+
+// ===================== 生字批次資料模型 =====================
+function formatDateTime(d) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function loadBatches() {
+  const saved = localStorage.getItem('wordBatches');
+  if (saved) {
+    try { return JSON.parse(saved); } catch (e) { /* fallthrough */ }
+  }
+  const old = localStorage.getItem('wordList');
+  if (old) {
+    try {
+      const words = JSON.parse(old);
+      if (Array.isArray(words) && words.length) {
+        const now = new Date();
+        localStorage.removeItem('wordList');
+        return [{ id: 'b_' + Date.now(), name: formatDateTime(now) + '（舊資料）', importedAt: now.toISOString(), words, visible: true }];
+      }
+    } catch (e) { /* ignore */ }
+  }
+  const now = new Date();
+  return [{ id: 'b_' + Date.now(), name: formatDateTime(now), importedAt: now.toISOString(), words: ['愛心', '學校', '朋友'], visible: true }];
+}
+
+const state = {
+  apiKey: localStorage.getItem('ttsKey') || '',
+  batches: loadBatches(),
+};
+document.getElementById('apiKey').value = state.apiKey;
+
+function saveBatches() { localStorage.setItem('wordBatches', JSON.stringify(state.batches)); }
+
+document.getElementById('saveKey').onclick = () => {
+  state.apiKey = document.getElementById('apiKey').value.trim();
+  localStorage.setItem('ttsKey', state.apiKey);
+  alert('已儲存');
+};
+
+// ===================== 匯出／匯入資料 =====================
+document.getElementById('exportData').onclick = () => {
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    apiKey: state.apiKey,
+    batches: state.batches,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const stamp = formatDateTime(new Date()).replace(/[/: ]/g, '-');
+  link.href = url;
+  link.download = `hanzi-app-backup-${stamp}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+document.getElementById('importData').onclick = () => document.getElementById('importFileInput').click();
+document.getElementById('importFileInput').onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || (!Array.isArray(data.batches) && typeof data.apiKey === 'undefined')) {
+        alert('檔案格式不正確，找不到 batches 或 apiKey 欄位。');
+        return;
+      }
+      if (!confirm('匯入將覆蓋目前的生字批次與 API Key，確定繼續嗎？')) return;
+      if (Array.isArray(data.batches)) {
+        state.batches = data.batches;
+        saveBatches();
+      }
+      if (typeof data.apiKey === 'string') {
+        state.apiKey = data.apiKey;
+        localStorage.setItem('ttsKey', state.apiKey);
+        document.getElementById('apiKey').value = state.apiKey;
+      }
+      renderManageWordList();
+      renderMainWordList();
+      alert('匯入完成！');
+    } catch (err) {
+      alert('匯入失敗，檔案不是有效的 JSON：' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
+  reader.readAsText(file);
+};
+
+// ===================== IndexedDB 通用快取層（字庫 + 語音共用同一個 DB）=====================
+const DB_NAME = 'hanzi-cache';
+const STORE = 'files';
+const DB_VERSION = 1;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbGet(key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbSet(key, value) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbDelete(key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbDeleteByPrefix(prefix) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    const req = store.openCursor();
+    req.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        if (String(cursor.key).startsWith(prefix)) cursor.delete();
+        cursor.continue();
+      }
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbGetAllByPrefix(prefix) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const store = tx.objectStore(STORE);
+    const req = store.openCursor();
+    const results = [];
+    req.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        if (String(cursor.key).startsWith(prefix)) results.push({ key: cursor.key, value: cursor.value });
+        cursor.continue();
+      } else {
+        resolve(results);
+      }
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+document.getElementById('clearCache').onclick = async () => {
+  indexedDB.deleteDatabase(DB_NAME);
+  alert('已清除，重新整理頁面即可重新下載字庫');
+};
+
+// ===================== TTS：合成（先查快取）、播放 =====================
+const LANG_LABELS = { 'cmn-CN': '普通話', 'yue-HK': '廣東話' };
+function ttsCacheKey(text, langCode, voiceName) { return `tts::${langCode}::${voiceName}::${text}`; }
+
+async function synthesize(text, langCode, voiceName) {
+  const key = ttsCacheKey(text, langCode, voiceName);
+  const cached = await idbGet(key);
+  if (cached) return cached;
+
+  if (!state.apiKey) { alert('請先在設定裡貼上並儲存 API Key'); return null; }
+  const resp = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${state.apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      input: { text },
+      voice: { languageCode: langCode, name: voiceName },
+      audioConfig: { audioEncoding: 'MP3' }
+    })
+  });
+  if (!resp.ok) { console.error(await resp.text()); alert('TTS 請求失敗，請檢查 API Key / 配額 / 網域限制'); return null; }
+  const json = await resp.json();
+  await idbSet(key, json.audioContent);
+  renderCacheSummaryInline();
+  return json.audioContent;
+}
+
+async function speak(text, langCode, voiceName) {
+  const b64 = await synthesize(text, langCode, voiceName);
+  if (!b64) return;
+  new Audio('data:audio/mp3;base64,' + b64).play();
+}
+
+// ===================== 語音快取管理彈窗 =====================
+function base64SizeBytes(b64) { return Math.floor((b64.length * 3) / 4); }
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+async function renderCacheSummaryInline() {
+  const entries = await idbGetAllByPrefix('tts::');
+  const totalBytes = entries.reduce((sum, { value }) => sum + base64SizeBytes(value), 0);
+  const el = document.getElementById('cacheSummaryInline');
+  if (el) el.textContent = `共 ${entries.length} 筆，${formatBytes(totalBytes)}`;
+}
+
+async function renderCacheManager() {
+  const wrap = document.getElementById('cacheListWrap');
+  const entries = await idbGetAllByPrefix('tts::');
+  let totalBytes = 0;
+  wrap.innerHTML = '';
+
+  if (entries.length === 0) {
+    wrap.innerHTML = '<div class="empty-tip">目前沒有任何已快取的語音檔。</div>';
+  } else {
+    entries.sort((a, b) => a.key.localeCompare(b.key));
+    entries.forEach(({ key, value }) => {
+      const parts = key.split('::');
+      const langCode = parts[1];
+      const voiceName = parts[2];
+      const text = parts.slice(3).join('::');
+      const size = base64SizeBytes(value);
+      totalBytes += size;
+
+      const row = document.createElement('div');
+      row.className = 'cache-row';
+      row.innerHTML = `
+        <span class="lang-badge">${LANG_LABELS[langCode] || langCode}</span>
+        <div class="meta">
+          <div class="w">${text}</div>
+          <div class="m">${voiceName} · ${formatBytes(size)}</div>
+        </div>
+        <button class="btn btn-outlined btn-sm" data-play><span class="btn-play-icon">${PLAY_ICON}</span>播放</button>
+        <button class="icon-btn small danger" data-del title="刪除這筆快取">✕</button>
+      `;
+      row.querySelector('[data-play]').onclick = () => new Audio('data:audio/mp3;base64,' + value).play();
+      row.querySelector('[data-del]').onclick = async () => {
+        await idbDelete(key);
+        renderCacheManager();
+        renderCacheSummaryInline();
+      };
+      wrap.appendChild(row);
+    });
+  }
+
+  document.getElementById('cacheSummary').textContent = `共 ${entries.length} 筆，${formatBytes(totalBytes)}`;
+  renderCacheSummaryInline();
+}
+
+document.getElementById('clearAllTtsCache').onclick = async () => {
+  if (!confirm('確定要清空全部語音快取嗎？之後播放會重新呼叫 API。')) return;
+  await idbDeleteByPrefix('tts::');
+  renderCacheManager();
+};
+
+// ===================== 管理生字彈窗（批次）=====================
+function renderManageWordList() {
+  const wrap = document.getElementById('manageWordListWrap');
+  wrap.innerHTML = '';
+  if (state.batches.length === 0) {
+    wrap.innerHTML = '<div class="empty-tip">還沒有匯入任何生字批次，先在上面新增一批吧。</div>';
+    return;
+  }
+  [...state.batches].reverse().forEach(batch => {
+    const item = document.createElement('div');
+    item.className = 'batch-item' + (batch.visible ? '' : ' hidden-batch');
+
+    const top = document.createElement('div');
+    top.className = 'batch-row-top';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = batch.visible;
+    checkbox.title = '顯示／隱藏這一整批在主頁';
+    checkbox.onchange = () => {
+      batch.visible = checkbox.checked;
+      item.classList.toggle('hidden-batch', !batch.visible);
+      saveBatches();
+      renderMainWordList();
+    };
+    top.appendChild(checkbox);
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'batch-name-input';
+    nameInput.value = batch.name;
+    nameInput.onchange = () => {
+      const val = nameInput.value.trim();
+      batch.name = val || formatDateTime(new Date(batch.importedAt));
+      nameInput.value = batch.name;
+      saveBatches();
+    };
+    top.appendChild(nameInput);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'icon-btn small danger';
+    delBtn.title = '刪除整批';
+    delBtn.textContent = '✕';
+    delBtn.onclick = () => {
+      if (!confirm(`確定刪除整批「${batch.name}」（共 ${batch.words.length} 個詞）嗎？`)) return;
+      state.batches = state.batches.filter(b => b.id !== batch.id);
+      saveBatches();
+      renderManageWordList();
+      renderMainWordList();
+    };
+    top.appendChild(delBtn);
+
+    item.appendChild(top);
+
+    const meta = document.createElement('div');
+    meta.className = 'batch-meta';
+    meta.textContent = `匯入時間：${formatDateTime(new Date(batch.importedAt))} · 共 ${batch.words.length} 個詞`;
+    item.appendChild(meta);
+
+    const wordsWrap = document.createElement('div');
+    wordsWrap.className = 'batch-words';
+    batch.words.forEach(w => {
+      const chip = document.createElement('span');
+      chip.className = 'batch-word-chip';
+      chip.textContent = w;
+      wordsWrap.appendChild(chip);
+    });
+    item.appendChild(wordsWrap);
+
+    wrap.appendChild(item);
+  });
+}
+
+function splitWords(text) {
+  return text.split(/[\s,，、]+/).map(w => w.trim()).filter(Boolean);
+}
+
+document.getElementById('addWord').onclick = () => {
+  const input = document.getElementById('wordInput');
+  const newWords = splitWords(input.value);
+  if (newWords.length === 0) return;
+  const now = new Date();
+  const batch = {
+    id: 'b_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    name: formatDateTime(now),
+    importedAt: now.toISOString(),
+    words: newWords,
+    visible: true,
+  };
+  state.batches.push(batch);
+  saveBatches();
+  renderManageWordList();
+  renderMainWordList();
+  input.value = '';
+};
+
+// ===================== 字庫檔案（放在 data/ 資料夾）=====================
+const SOURCES = { dictionary: 'data/dictionary.txt', graphics: 'data/graphics.txt' };
+let DICTIONARY = null, GRAPHICS = null;
+
+function parseNDJSONtoMap(text) {
+  const map = {};
+  text.split('\n').forEach(line => {
+    const t = line.trim();
+    if (!t) return;
+    const obj = JSON.parse(t);
+    map[obj.character] = obj;
+  });
+  return map;
+}
+
+async function fetchWithProgress(url, onProgress) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`下載失敗 (HTTP ${resp.status}): ${url}`);
+  const total = Number(resp.headers.get('content-length')) || 0;
+  const reader = resp.body.getReader();
+  let received = 0;
+  const chunks = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    if (total) onProgress(received / total);
+  }
+  return await new Blob(chunks).text();
+}
+
+async function loadHanziData() {
+  const statusEl = document.getElementById('dataStatus');
+  const bar = document.getElementById('progressBar');
+  const fill = document.getElementById('progressFill');
+
+  const cachedDict = await idbGet('dictionary');
+  const cachedGraphics = await idbGet('graphics');
+  if (cachedDict && cachedGraphics) {
+    DICTIONARY = cachedDict; GRAPHICS = cachedGraphics;
+    statusEl.textContent = '字庫已從本機快取載入 ✔';
+    renderMainWordList();
+    return;
+  }
+
+  bar.style.display = 'block';
+  statusEl.textContent = '首次使用，正在讀取字庫檔案（約 32MB，之後會快取）…';
+  const dictText = await fetchWithProgress(SOURCES.dictionary, p => fill.style.width = (p * 40) + '%');
+  DICTIONARY = parseNDJSONtoMap(dictText);
+  const graphicsText = await fetchWithProgress(SOURCES.graphics, p => fill.style.width = (40 + p * 60) + '%');
+  GRAPHICS = parseNDJSONtoMap(graphicsText);
+  await idbSet('dictionary', DICTIONARY);
+  await idbSet('graphics', GRAPHICS);
+  bar.style.display = 'none';
+  statusEl.textContent = '字庫讀取並快取完成 ✔';
+  renderMainWordList();
+}
+
+loadHanziData().catch(err => {
+  document.getElementById('dataStatus').textContent = '字庫載入失敗：' + err.message +
+    '（請確認 data/dictionary.txt / data/graphics.txt 已放進 data/ 資料夾）';
+  console.error(err);
+});
+renderCacheSummaryInline();
+
+// ===================== 拆解成拼圖分組 =====================
+const IDS_OPERATORS = new Set(['⿰','⿱','⿲','⿳','⿴','⿵','⿶','⿷','⿸','⿹','⿺','⿻']);
+
+// 按 matches 路徑的前 depth 層分組。depth=1 就是「拆部件」，
+// depth=2 就是「拆次部件」
+function groupStrokesByPathDepth(strokes, matches, depth) {
+  const groupsMap = {};
+  strokes.forEach((d, i) => {
+    const match = matches[i];
+    const key = (match && match.length) ? match.slice(0, depth).join('-') : '0';
+    (groupsMap[key] = groupsMap[key] || []).push(d);
+  });
+  const keys = Object.keys(groupsMap).sort((a, b) => {
+    const pa = a.split('-').map(Number);
+    const pb = b.split('-').map(Number);
+    const len = Math.max(pa.length, pb.length);
+    for (let i = 0; i < len; i++) {
+      const va = pa[i] === undefined ? -1 : pa[i];
+      const vb = pb[i] === undefined ? -1 : pb[i];
+      if (va !== vb) return va - vb;
+    }
+    return 0;
+  });
+  return keys.map(k => ({ d: groupsMap[k] }));
+}
+
+// 拆部件（第 1 層）：依 decomposition 的頂層結構分成 2~3 大塊
+function buildComponentEntry(char) {
+  const dictEntry = DICTIONARY[char];
+  const graphicsEntry = GRAPHICS[char];
+  if (!dictEntry || !graphicsEntry) return null;
+  const decomposition = dictEntry.decomposition || '';
+  if (!decomposition || decomposition.startsWith('？')) return { character: char, groups: [] };
+  const groups = groupStrokesByPathDepth(graphicsEntry.strokes || [], dictEntry.matches || [], 1);
+  return { character: char, groups: groups.length >= 2 ? groups : [] };
+}
+
+// 拆次部件（第 2 層）：部件如果本身還能再拆，就再往下切一層
+function buildMidEntry(char) {
+  const dictEntry = DICTIONARY[char];
+  const graphicsEntry = GRAPHICS[char];
+  if (!dictEntry || !graphicsEntry) return null;
+  const decomposition = dictEntry.decomposition || '';
+  if (!decomposition || decomposition.startsWith('？')) return { character: char, groups: [] };
+  const groups = groupStrokesByPathDepth(graphicsEntry.strokes || [], dictEntry.matches || [], 2);
+  return { character: char, groups: groups.length >= 2 ? groups : [] };
+}
+
+// 拆筆畫：每一筆自己一塊，難度最高；獨體字也能玩，因為筆畫資料一定存在
+function buildStrokeEntry(char) {
+  const graphicsEntry = GRAPHICS[char];
+  if (!graphicsEntry) return null;
+  const strokes = graphicsEntry.strokes || [];
+  const groups = strokes.map(d => ({ d: [d] }));
+  return { character: char, groups: groups.length >= 2 ? groups : [] };
+}
+
+function buildCharEntry(char) {
+  if (difficultyLevel === 'stroke') return buildStrokeEntry(char);
+  if (difficultyLevel === 'mid') return buildMidEntry(char);
+  return buildComponentEntry(char);
+}
+
+// ===================== 拼圖小工具：真實外框動態計算格子 =====================
+const NS = 'http://www.w3.org/2000/svg';
+const PIECE_COLORS = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00897b', '#3949ab', '#c0ca33', '#d81b60', '#00acc1'];
+
+function rawBBox(paths) {
+  const host = document.createElementNS(NS, 'svg');
+  host.style.position = 'absolute'; host.style.visibility = 'hidden'; host.style.width = '0'; host.style.height = '0';
+  const g = document.createElementNS(NS, 'g');
+  paths.forEach(d => { const p = document.createElementNS(NS, 'path'); p.setAttribute('d', d); g.appendChild(p); });
+  host.appendChild(g); document.body.appendChild(host);
+  const box = g.getBBox();
+  document.body.removeChild(host);
+  return box;
+}
+function flippedRect(box) { return { x: box.x, y: 900 - box.y - box.height, width: box.width, height: box.height }; }
+function pathsToPathElements(paths, fill) { return paths.map(d => `<path d="${d}" fill="${fill}"/>`).join(''); }
+function pieceThumbSvg(rect, color) {
+  const pad = Math.max(rect.width, rect.height) * 0.15 || 40;
+  const vb = `${rect.x - pad} ${rect.y - pad} ${rect.width + pad*2} ${rect.height + pad*2}`;
+  return `<svg viewBox="${vb}"><g transform="scale(1,-1) translate(0,-900)">${pathsToPathElements(rect.paths, color)}</g></svg>`;
+}
+
+// 依外框形狀粗略判斷筆畫種類：點（很小）、橫（扁長）、豎（瘦高）、其他（形狀特殊，維持精確比對）
+const DOT_MAX_SIZE = 150;
+const LINE_ASPECT_RATIO = 2.0;
+function classifyStrokeShape(rect) {
+  const w = rect.width, h = rect.height;
+  if (w <= DOT_MAX_SIZE && h <= DOT_MAX_SIZE) return 'dot';
+  if (w > h * LINE_ASPECT_RATIO) return 'horizontal';
+  if (h > w * LINE_ASPECT_RATIO) return 'vertical';
+  return 'other';
+}
+const INTERCHANGEABLE_TYPES = new Set(['dot', 'horizontal', 'vertical']);
+
+// 產生「錯位重排」(derangement)：保證每一塊都不落在原本正確的位置
+function derangement(n) {
+  if (n <= 1) return Array.from({ length: n }, (_, i) => i);
+  let arr;
+  let guard = 0;
+  do {
+    arr = Array.from({ length: n }, (_, i) => i);
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    guard++;
+  } while (arr.some((v, i) => v === i) && guard < 100);
+  return arr;
+}
+
+// 產生一個獨立的拼圖小卡片。onSolved 會在這個字「揭曉」的當下被呼叫
+function createPuzzleWidget(char, onSolved) {
+  const entry = buildCharEntry(char);
+  const widget = document.createElement('div');
+  widget.className = 'puzzle-widget';
+
+  const label = document.createElement('div');
+  label.className = 'puzzle-widget-label';
+  const hasPuzzle = entry && entry.groups && entry.groups.length >= 2;
+
+  const charSlot = document.createElement('span');
+  charSlot.className = 'char-slot' + (hasPuzzle ? ' hidden-answer' : '');
+  charSlot.textContent = hasPuzzle ? '？' : char;
+  label.appendChild(charSlot);
+
+  const playBtn = document.createElement('button');
+  playBtn.className = 'btn btn-outlined btn-sm';
+  playBtn.innerHTML = `<span class="btn-play-icon">${PLAY_ICON}</span>播放`;
+  playBtn.onclick = () => speak(char, LANG_MANDARIN, VOICE_MANDARIN);
+  label.appendChild(playBtn);
+  widget.appendChild(label);
+
+  if (!hasPuzzle) {
+    const note = document.createElement('div');
+    note.className = 'empty-tip';
+    note.style.fontSize = '12px';
+    note.style.padding = '30px 0';
+    note.textContent = difficultyLevel === 'stroke' ? '單一筆畫，無拼圖' : '獨體字或無法再拆，無拼圖';
+    widget.appendChild(note);
+    if (onSolved) onSolved();
+    return widget;
+  }
+
+  const targetBox = document.createElement('div');
+  targetBox.className = 'mini-target-box';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 1024 1024');
+  svg.classList.add('mini-target-svg');
+  const g = document.createElementNS(NS, 'g');
+  g.setAttribute('transform', 'scale(1,-1) translate(0,-900)');
+  svg.appendChild(g);
+  targetBox.appendChild(svg);
+  widget.appendChild(targetBox);
+
+  const tray = document.createElement('div');
+  tray.className = 'mini-tray';
+  widget.appendChild(tray);
+
+  const status = document.createElement('div');
+  status.className = 'mini-status';
+  widget.appendChild(status);
+
+  const rects = entry.groups.map(gr => {
+    const r = flippedRect(rawBBox(gr.d));
+    r.paths = gr.d;
+    r.shape = classifyStrokeShape(r);
+    return r;
+  });
+
+  const colorForKey = {};
+  let colorCursor = 0;
+  rects.forEach((r, i) => {
+    const key = INTERCHANGEABLE_TYPES.has(r.shape) ? `shape:${r.shape}` : `unique:${i}`;
+    if (!(key in colorForKey)) colorForKey[key] = PIECE_COLORS[colorCursor++ % PIECE_COLORS.length];
+    r.color = colorForKey[key];
+  });
+
+  const PAD_PCT = 0.015;
+  let filledCount = 0;
+
+  const zIndexOrder = rects.map((_, i) => i).sort((a, b) => (rects[b].width * rects[b].height) - (rects[a].width * rects[a].height));
+
+  zIndexOrder.forEach(i => {
+    const r = rects[i];
+    const zone = document.createElement('div');
+    zone.className = 'mini-drop-zone';
+    zone.style.left = Math.max(0, (r.x / 1024 - PAD_PCT) * 100) + '%';
+    zone.style.top = Math.max(0, (r.y / 1024 - PAD_PCT) * 100) + '%';
+    zone.style.width = Math.min(100, (r.width / 1024 + PAD_PCT*2) * 100) + '%';
+    zone.style.height = Math.min(100, (r.height / 1024 + PAD_PCT*2) * 100) + '%';
+    zone.dataset.index = i;
+    zone.ondragover = e => { e.preventDefault(); zone.classList.add('over'); };
+    zone.ondragleave = () => zone.classList.remove('over');
+    zone.ondrop = e => {
+      e.preventDefault();
+      zone.classList.remove('over');
+      const draggedIndex = Number(e.dataTransfer.getData('text/plain'));
+      const draggedRect = rects[draggedIndex];
+      const isExact = draggedIndex === i;
+      const isInterchangeable = INTERCHANGEABLE_TYPES.has(r.shape) && draggedRect.shape === r.shape;
+      if (isExact || isInterchangeable) {
+        entry.groups[i].d.forEach(d => {
+          const p = document.createElementNS(NS, 'path');
+          p.setAttribute('d', d); p.setAttribute('fill', r.color);
+          g.appendChild(p);
+        });
+        zone.classList.add('filled', 'mini-correct-flash');
+        const pieceEl = tray.querySelector(`.mini-piece[data-index="${draggedIndex}"]`);
+        if (pieceEl) pieceEl.remove();
+        filledCount++;
+        if (filledCount === rects.length) {
+          status.textContent = '🎉 完成！';
+          charSlot.textContent = char;
+          charSlot.classList.remove('hidden-answer');
+          if (onSolved) onSolved();
+        } else {
+          status.textContent = '';
+        }
+      } else {
+        status.textContent = '位置不對，再試一次';
+      }
+    };
+    targetBox.appendChild(zone);
+  });
+
+  const order = derangement(rects.length);
+  order.forEach(i => {
+    const r = rects[i];
+    const piece = document.createElement('div');
+    piece.className = 'mini-piece';
+    piece.draggable = true;
+    piece.dataset.index = i;
+    piece.style.borderColor = r.color;
+    piece.innerHTML = pieceThumbSvg(r, r.color);
+    piece.ondragstart = e => e.dataTransfer.setData('text/plain', i);
+    tray.appendChild(piece);
+  });
+
+  return widget;
+}
+
+// ===================== 主頁：垂直列出詞（只顯示「可見」批次的詞），橫向排出每個字的拼圖 =====================
+function uniqueChars(word) { return [...new Set(word.split(''))].filter(c => /[\u4e00-\u9fff]/.test(c)); }
+
+function visibleWords() {
+  const seen = new Set();
+  const result = [];
+  state.batches.filter(b => b.visible).forEach(b => {
+    b.words.forEach(w => { if (!seen.has(w)) { seen.add(w); result.push(w); } });
+  });
+  return result;
+}
+
+function renderMainWordList() {
+  const wrap = document.getElementById('mainWordList');
+  wrap.innerHTML = '';
+  if (!DICTIONARY || !GRAPHICS) return;
+  const words = visibleWords();
+  if (words.length === 0) {
+    wrap.innerHTML = '<div class="empty-tip">目前沒有顯示中的生字。請點右上角「管理生字」新增批次，或勾選現有批次讓它顯示。</div>';
+    return;
+  }
+  words.forEach(word => {
+    const block = document.createElement('div');
+    block.className = 'word-block';
+
+    const header = document.createElement('div');
+    header.className = 'word-header';
+
+    const wordTextSpan = document.createElement('span');
+    wordTextSpan.className = 'word-text';
+    const charSpans = {};
+    [...word].forEach(ch => {
+      const isHan = /[\u4e00-\u9fff]/.test(ch);
+      const s = document.createElement('span');
+      if (isHan) {
+        s.textContent = '？';
+        s.className = 'char-hidden';
+        (charSpans[ch] = charSpans[ch] || []).push(s);
+      } else {
+        s.textContent = ch;
+      }
+      wordTextSpan.appendChild(s);
+    });
+    header.appendChild(wordTextSpan);
+
+    const mBtn = document.createElement('button');
+    mBtn.className = 'btn btn-outlined btn-sm';
+    mBtn.innerHTML = `<span class="btn-play-icon">${PLAY_ICON}</span>播放普通話`;
+    mBtn.onclick = () => speak(word, LANG_MANDARIN, VOICE_MANDARIN);
+    const cBtn = document.createElement('button');
+    cBtn.className = 'btn btn-outlined btn-sm';
+    cBtn.innerHTML = `<span class="btn-play-icon">${PLAY_ICON}</span>播放廣東話`;
+    cBtn.onclick = () => speak(word, LANG_CANTONESE, VOICE_CANTONESE);
+    header.appendChild(mBtn);
+    header.appendChild(cBtn);
+    block.appendChild(header);
+
+    const strip = document.createElement('div');
+    strip.className = 'puzzle-strip';
+    uniqueChars(word).forEach(ch => {
+      const widget = createPuzzleWidget(ch, () => {
+        (charSpans[ch] || []).forEach(s => { s.textContent = ch; s.classList.remove('char-hidden'); });
+      });
+      strip.appendChild(widget);
+    });
+    block.appendChild(strip);
+
+    wrap.appendChild(block);
+  });
+}
+</script>
+</body>
+</html>
