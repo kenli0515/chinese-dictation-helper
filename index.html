@@ -90,11 +90,10 @@ body.hide-zone-hints .mini-drop-zone { border-color:transparent; }
 body.hide-zone-hints .mini-drop-zone.over { border-color:var(--primary); }
 .mini-static-char { display:flex; align-items:center; justify-content:center; color:var(--on-surface); font-family:"Noto Sans TC",sans-serif; font-size:100px; font-weight:700; line-height:1; }
 .mini-tray { display:flex; justify-content:center; gap:6px; flex-wrap:wrap; margin-top:10px; min-height:40px; }
-.mini-piece { position:relative; width:40px; height:40px; border:2px solid #333; border-radius:8px; background:var(--surface); box-shadow:var(--elev1); cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+.mini-piece { width:40px; height:40px; border:2px solid #333; border-radius:8px; background:var(--surface); box-shadow:var(--elev1); cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
 .mini-piece:active { cursor:grabbing; }
 .mini-piece svg { display:block; width:100%; height:100%; pointer-events:none; }
 .mini-piece.dragging-source { opacity:.30; }
-.piece-badge { position:absolute; top:-7px; right:-7px; min-width:17px; height:17px; padding:0 3px; border-radius:9px; background:var(--primary); color:var(--on-primary); font-size:10px; font-weight:700; line-height:17px; text-align:center; box-shadow:var(--elev1); pointer-events:none; }
 .drag-ghost { position:fixed; z-index:9999; width:54px; height:54px; border-radius:10px; background:var(--surface); box-shadow:var(--elev3); opacity:.94; pointer-events:none; transform:translate(-50%,-50%); touch-action:none; }
 .drag-ghost svg { width:100%; height:100%; pointer-events:none; }
 .mini-status { min-height:18px; margin-top:6px; color:var(--on-surface-variant); font-size:12px; }
@@ -183,7 +182,7 @@ body.hide-zone-hints .mini-drop-zone.over { border-color:var(--primary); }
 
     <div class="settings-section">
       <h2 style="margin-top:0">版本資訊</h2>
-      <div class="setting-row"><div class="label">目前版本<small id="currentVersionLabel">v1.0.4</small></div><button class="btn btn-outlined btn-sm" id="checkUpdateBtn">檢查更新</button></div>
+      <div class="setting-row"><div class="label">目前版本<small id="currentVersionLabel">v1.0.5</small></div><button class="btn btn-outlined btn-sm" id="checkUpdateBtn">檢查更新</button></div>
       <div id="updateCheckStatus" class="hint" style="margin-bottom:8px"></div>
       <div class="row" id="forceReloadRow" style="display:none"><button class="btn btn-filled" id="forceReloadBtn">重新載入最新版本</button></div>
       <p class="hint">iOS 加到主畫面的網頁沒有下拉重新整理。發布新版本後，可來這裡檢查更新並重新載入。</p>
@@ -205,7 +204,7 @@ body.hide-zone-hints .mini-drop-zone.over { border-color:var(--primary); }
       <div class="label" style="margin-top:16px">拼圖拆解方式<small id="difficultyDesc"></small></div>
       <input type="range" id="difficultySlider" class="range-slider" min="0" max="2" step="1">
       <div class="range-labels"><span id="labelComponent">拆部件</span><span id="labelStroke">拆筆畫</span><span id="labelOrder">跟筆順</span></div>
-      <p class="hint">拆筆畫模式下，同一個字裡長得一樣的橫線、豎線或點會合併成一塊可重複使用的方塊，右上角數字代表還可以用幾次。跟筆順模式更嚴格：每一筆都不合併、也不能互換，一定要照正確的書寫順序放，順序不對會被拒絕並提示「還沒輪到這一筆」。拆不開的獨體字會直接放大顯示，方便認讀。</p>
+      <p class="hint">拆筆畫模式下，每一筆都是獨立碎片；長得像的橫、豎、點可互換，放進任何一個同類型的空格都算對，不需要記住是原本哪一筆。跟筆順模式更嚴格：每一筆都不能互換，一定要照正確的書寫順序放，順序不對會被拒絕並提示「還沒輪到這一筆」。拆不開的獨體字會直接放大顯示，方便認讀。</p>
     </div>
 
     <div class="settings-section">
@@ -253,7 +252,7 @@ body.hide-zone-hints .mini-drop-zone.over { border-color:var(--primary); }
 'use strict';
 
 /* ---------- App/version ---------- */
-var APP_VERSION = '1.0.4';
+var APP_VERSION = '1.0.5';
 var PLAY_ICON = '▶';
 document.getElementById('currentVersionLabel').textContent = 'v' + APP_VERSION;
 
@@ -318,8 +317,8 @@ celebrationToggle.onchange = function () {
 var DIFFICULTY_LEVELS = ['component', 'stroke', 'stroke-order'];
 var DIFFICULTY_DESC = {
   component: '拆部件：依字的結構（上下／左右／包圍）拆成 2～3 大塊',
-  stroke: '拆筆畫：每一筆是獨立碎片；相同的橫／豎／點會合併成一塊可重複使用的方塊',
-  'stroke-order': '跟筆順：每一筆都要照正確的書寫順序放，不合併也不能互換，順序不對會被拒絕，難度最高'
+  stroke: '拆筆畫：每一筆是獨立碎片，長得像的橫／豎／點可互換，難度最高',
+  'stroke-order': '跟筆順：每一筆都要照正確的書寫順序放，不能互換，順序不對會被拒絕，難度最高'
 };
 var difficultyLevel = localStorage.getItem('difficultyLevel') || 'component';
 if (DIFFICULTY_LEVELS.indexOf(difficultyLevel) === -1) difficultyLevel = 'component';
@@ -824,6 +823,19 @@ function classify(rect) {
   return 'other';
 }
 var SWAPPABLE = { dot: true, horizontal: true, vertical: true };
+function derangement(n) {
+  if (n < 2) return [0];
+  var a;
+  do {
+    a = [];
+    for (var i = 0; i < n; i++) a.push(i);
+    for (var j = n - 1; j > 0; j--) {
+      var k = Math.floor(Math.random() * (j + 1));
+      var tmp = a[j]; a[j] = a[k]; a[k] = tmp;
+    }
+  } while (a.some(function (x, i) { return x === i; }));
+  return a;
+}
 function shuffle(arr) {
   for (var i = arr.length - 1; i > 0; i--) {
     var j = Math.floor(Math.random() * (i + 1));
@@ -1047,84 +1059,28 @@ function createPuzzleWidget(char, onSolved) {
       tray.appendChild(piece);
     });
   } else {
-    var uniqueIndices = [];
-    var swappableGroups = {};
-    rects.forEach(function (r, i) {
-      if (SWAPPABLE[r.shape]) {
-        (swappableGroups[r.shape] = swappableGroups[r.shape] || []).push(i);
-      } else {
-        uniqueIndices.push(i);
-      }
-    });
+    var order = derangement(rects.length);
+    order.forEach(function (i) {
+      var r = rects[i];
+      var piece = document.createElement('div');
+      piece.className = 'mini-piece';
+      piece.style.borderColor = r.color;
+      piece.innerHTML = thumb(r, r.color);
 
-    var trayItems = [];
-    uniqueIndices.forEach(function (i) { trayItems.push({ type: 'unique', index: i }); });
-    Object.keys(swappableGroups).forEach(function (shape) {
-      trayItems.push({ type: 'group', shape: shape, indices: swappableGroups[shape] });
-    });
-    shuffle(trayItems);
-
-    trayItems.forEach(function (item) {
-      if (item.type === 'unique') {
-        var idx = item.index;
-        var r = rects[idx];
-        var piece = document.createElement('div');
-        piece.className = 'mini-piece';
-        piece.style.borderColor = r.color;
-        piece.innerHTML = thumb(r, r.color);
-        var placed = false;
-
-        bindPointerDrag(piece, {
-          targetBox: target,
-          onMiss: function () { status.textContent = '位置不對，再試一次'; },
-          onDrop: function (zone) {
-            if (placed) return;
-            var targetIndex = Number(zone.dataset.index);
-            if (targetIndex !== idx) { status.textContent = '位置不對，再試一次'; return; }
-            placed = true;
-            fillZone(zone, r.color, targetIndex);
-            piece.remove();
-          }
-        });
-        tray.appendChild(piece);
-      } else {
-        var shape = item.shape;
-        var indices = item.indices;
-        var groupColor = rects[indices[0]].color;
-        var representative = indices.reduce(function (best, cand) {
-          var candArea = rects[cand].width * rects[cand].height;
-          var bestArea = rects[best].width * rects[best].height;
-          return candArea > bestArea ? cand : best;
-        }, indices[0]);
-        var remaining = indices.length;
-
-        var groupPiece = document.createElement('div');
-        groupPiece.className = 'mini-piece';
-        groupPiece.style.borderColor = groupColor;
-        groupPiece.innerHTML = thumb(rects[representative], groupColor);
-
-        var badge = document.createElement('span');
-        badge.className = 'piece-badge';
-        badge.textContent = '×' + remaining;
-        groupPiece.appendChild(badge);
-
-        bindPointerDrag(groupPiece, {
-          targetBox: target,
-          onMiss: function () { status.textContent = '位置不對，再試一次'; },
-          onDrop: function (zone) {
-            if (zone.dataset.shape !== shape) { status.textContent = '位置不對，再試一次'; return; }
-            var targetIndex = Number(zone.dataset.index);
-            fillZone(zone, groupColor, targetIndex);
-            remaining--;
-            if (remaining > 0) {
-              badge.textContent = '×' + remaining;
-            } else {
-              groupPiece.remove();
-            }
-          }
-        });
-        tray.appendChild(groupPiece);
-      }
+      bindPointerDrag(piece, {
+        targetBox: target,
+        onMiss: function () { status.textContent = '位置不對，再試一次'; },
+        onDrop: function (zone) {
+          var targetIndex = Number(zone.dataset.index);
+          var targetRect = rects[targetIndex];
+          var exact = i === targetIndex;
+          var interchangeable = SWAPPABLE[targetRect.shape] && r.shape === targetRect.shape;
+          if (!exact && !interchangeable) { status.textContent = '位置不對，再試一次'; return; }
+          fillZone(zone, targetRect.color, targetIndex);
+          piece.remove();
+        }
+      });
+      tray.appendChild(piece);
     });
   }
 
