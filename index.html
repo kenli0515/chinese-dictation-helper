@@ -69,12 +69,19 @@ h1 { margin:0; font-size:22px; font-weight:700; }
 .word-header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
 .word-text { margin-right:6px; font-size:24px; font-weight:700; letter-spacing:2px; }
 .char-hidden { color:var(--on-surface-variant); font-weight:400; }
-.puzzle-strip { display:flex; gap:18px; overflow-x:auto; padding:4px 2px 12px; overscroll-behavior-x:contain; }
-.puzzle-widget { width:190px; flex:0 0 auto; padding:10px; border-radius:14px; background:var(--surface); box-shadow:var(--elev1); text-align:center; }
+.puzzle-strip { display:flex; gap:18px; overflow-x:auto; overflow-y:visible; padding:4px 2px 12px; overscroll-behavior-x:contain; }
+.puzzle-widget { position:relative; width:190px; flex:0 0 auto; padding:10px; border-radius:14px; background:var(--surface); box-shadow:var(--elev1); text-align:center; }
 .puzzle-widget-label { display:flex; align-items:center; justify-content:center; gap:8px; min-height:24px; margin-bottom:8px; font-size:16px; font-weight:700; }
 .char-slot { min-width:24px; letter-spacing:2px; }
 .hidden-answer { color:var(--on-surface-variant); font-weight:400; }
-.mini-target-box { position:relative; width:160px; height:160px; margin:0 auto; overflow:hidden; border:2px solid var(--outline); border-radius:12px; background:var(--background); }
+.mini-target-box { position:relative; width:160px; height:160px; margin:0 auto; overflow:hidden; border:2px solid var(--outline); border-radius:12px; background:var(--background); transition:transform .15s; }
+.mini-target-box.celebrate-pulse { animation:celebrate-bounce .6s ease; }
+@keyframes celebrate-bounce {
+  0% { transform:scale(1); }
+  30% { transform:scale(1.10); box-shadow:0 0 0 6px rgba(103,80,164,.25); }
+  55% { transform:scale(0.97); }
+  100% { transform:scale(1); box-shadow:none; }
+}
 .mini-target-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
 .mini-drop-zone { position:absolute; border:2px dashed var(--outline); border-radius:4px; transition:border-color .2s,background .2s; }
 .mini-drop-zone.over { border-color:var(--primary); background:rgba(103,80,164,.18); }
@@ -92,6 +99,18 @@ body.hide-zone-hints .mini-drop-zone.over { border-color:var(--primary); }
 .mini-status { min-height:18px; margin-top:6px; color:var(--on-surface-variant); font-size:12px; }
 .mini-correct-flash { animation:flash .55s; }
 @keyframes flash { from { box-shadow:inset 0 0 0 999px rgba(46,125,50,.35); } to { box-shadow:inset 0 0 0 999px transparent; } }
+
+.confetti-piece {
+  position:absolute; top:50%; left:50%; z-index:50;
+  font-size:20px; line-height:1; pointer-events:none;
+  transform:translate(-50%,-50%);
+  animation:confetti-burst .9s cubic-bezier(.2,.8,.3,1) forwards;
+}
+@keyframes confetti-burst {
+  0% { transform:translate(-50%,-50%) scale(.4) rotate(0deg); opacity:1; }
+  70% { opacity:1; }
+  100% { transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.05) rotate(var(--rot)); opacity:0; }
+}
 
 .batch-item { margin-bottom:12px; padding:12px 14px; border:1px solid var(--surface-variant); border-radius:14px; }
 .batch-item.hidden-batch { opacity:.5; }
@@ -163,7 +182,7 @@ body.hide-zone-hints .mini-drop-zone.over { border-color:var(--primary); }
 
     <div class="settings-section">
       <h2 style="margin-top:0">版本資訊</h2>
-      <div class="setting-row"><div class="label">目前版本<small id="currentVersionLabel">v1.0.1</small></div><button class="btn btn-outlined btn-sm" id="checkUpdateBtn">檢查更新</button></div>
+      <div class="setting-row"><div class="label">目前版本<small id="currentVersionLabel">v1.0.2</small></div><button class="btn btn-outlined btn-sm" id="checkUpdateBtn">檢查更新</button></div>
       <div id="updateCheckStatus" class="hint" style="margin-bottom:8px"></div>
       <div class="row" id="forceReloadRow" style="display:none"><button class="btn btn-filled" id="forceReloadBtn">重新載入最新版本</button></div>
       <p class="hint">iOS 加到主畫面的網頁沒有下拉重新整理。發布新版本後，可來這裡檢查更新並重新載入。</p>
@@ -172,6 +191,11 @@ body.hide-zone-hints .mini-drop-zone.over { border-color:var(--primary); }
     <div class="settings-section">
       <h2>外觀</h2>
       <div class="setting-row"><div class="label">深色模式</div><label class="switch"><input type="checkbox" id="themeToggle"><span class="slider"></span></label></div>
+    </div>
+
+    <div class="settings-section">
+      <h2>完成慶祝效果</h2>
+      <div class="setting-row"><div class="label">拼圖完成音效與動畫<small>拼對整個字時播放拍手聲、彩紙動畫和田字格彈跳</small></div><label class="switch"><input type="checkbox" id="celebrationToggle"><span class="slider"></span></label></div>
     </div>
 
     <div class="settings-section">
@@ -228,7 +252,7 @@ body.hide-zone-hints .mini-drop-zone.over { border-color:var(--primary); }
 'use strict';
 
 /* ---------- App/version ---------- */
-var APP_VERSION = '1.0.1';
+var APP_VERSION = '1.0.2';
 var PLAY_ICON = '▶';
 document.getElementById('currentVersionLabel').textContent = 'v' + APP_VERSION;
 
@@ -264,7 +288,7 @@ var LANG_LABELS = {};
 LANG_LABELS[LANG_MANDARIN] = '普通話';
 LANG_LABELS[LANG_CANTONESE] = '廣東話';
 
-/* ---------- Theme/hints/difficulty ---------- */
+/* ---------- Theme/hints/difficulty/celebration ---------- */
 var themeToggle = document.getElementById('themeToggle');
 themeToggle.checked = localStorage.getItem('theme') === 'dark';
 document.documentElement.classList.toggle('dark', themeToggle.checked);
@@ -280,6 +304,14 @@ document.body.classList.toggle('hide-zone-hints', !hintsOn);
 hintToggle.onchange = function () {
   document.body.classList.toggle('hide-zone-hints', !hintToggle.checked);
   localStorage.setItem('showZoneHints', String(hintToggle.checked));
+};
+
+var celebrationToggle = document.getElementById('celebrationToggle');
+var celebrationOn = localStorage.getItem('celebrationEnabled') !== 'false';
+celebrationToggle.checked = celebrationOn;
+celebrationToggle.onchange = function () {
+  celebrationOn = celebrationToggle.checked;
+  localStorage.setItem('celebrationEnabled', String(celebrationOn));
 };
 
 var DIFFICULTY_LEVELS = ['component', 'stroke'];
@@ -319,6 +351,71 @@ function wireOverlay(overlayId, openId, closeId, beforeOpen) {
 wireOverlay('settingsOverlay', 'openSettings', 'closeSettings', function () { renderCacheSummaryInline(); });
 wireOverlay('manageWordsOverlay', 'openManageWords', 'closeManageWords', function () { renderManageWordList(); });
 wireOverlay('cacheManagerOverlay', 'openCacheManager', 'closeCacheManager', function () { renderCacheManager(); });
+
+/* ---------- Celebration: confetti + synthesized clap sound ---------- */
+var audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    audioCtx = new Ctx();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function playClapSound() {
+  var ctx = getAudioCtx();
+  if (!ctx) return;
+  var now = ctx.currentTime;
+  var claps = [0, 0.11, 0.22];
+  claps.forEach(function (t, idx) {
+    var duration = 0.09;
+    var bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+    var buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    var data = buffer.getChannelData(0);
+    for (var i = 0; i < bufferSize; i++) {
+      var decay = Math.pow(1 - i / bufferSize, 2.2);
+      data[i] = (Math.random() * 2 - 1) * decay;
+    }
+    var noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    var bandpass = ctx.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.value = 1600 + idx * 250;
+    bandpass.Q.value = 0.8;
+    var gain = ctx.createGain();
+    gain.gain.value = 0.85 - idx * 0.08;
+    noise.connect(bandpass);
+    bandpass.connect(gain);
+    gain.connect(ctx.destination);
+    noise.start(now + t);
+  });
+}
+var CONFETTI_EMOJIS = ['🎉', '✨', '⭐', '🌟', '🎊'];
+function celebrate(widget, targetBox) {
+  if (!celebrationOn) return;
+
+  targetBox.classList.add('celebrate-pulse');
+  setTimeout(function () { targetBox.classList.remove('celebrate-pulse'); }, 650);
+
+  var count = 10;
+  for (var i = 0; i < count; i++) {
+    (function (i) {
+      var span = document.createElement('span');
+      span.className = 'confetti-piece';
+      span.textContent = CONFETTI_EMOJIS[Math.floor(Math.random() * CONFETTI_EMOJIS.length)];
+      var angle = (Math.PI * 2 * i) / count + (Math.random() * 0.5 - 0.25);
+      var dist = 55 + Math.random() * 45;
+      span.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+      span.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+      span.style.setProperty('--rot', (Math.random() * 300 - 150) + 'deg');
+      widget.appendChild(span);
+      setTimeout(function () { span.remove(); }, 950);
+    })(i);
+  }
+
+  playClapSound();
+}
 
 /* ---------- Word batches ---------- */
 function formatDateTime(d) {
@@ -765,11 +862,6 @@ function bindPointerDrag(piece, opts) {
 
   piece.addEventListener('pointerdown', function (e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-
-    // Guard: ignore a second pointerdown while this piece is already being dragged.
-    // Without this, a duplicate/re-entrant pointerdown (which can happen on iOS with
-    // multitouch or stylus+finger) would overwrite the `ghost` reference and leave the
-    // previous floating copy permanently stuck in the DOM ("card stuck" bug).
     if (active) return;
 
     e.preventDefault();
@@ -779,7 +871,6 @@ function bindPointerDrag(piece, opts) {
     try { piece.setPointerCapture(pid); } catch (err) { /* ignore */ }
     piece.classList.add('dragging-source');
 
-    // Defensive: clear any orphaned ghost that might exist from an earlier failed drag.
     removeGhost();
 
     ghost = piece.cloneNode(true);
@@ -815,9 +906,6 @@ function bindPointerDrag(piece, opts) {
     if (active && e.pointerId === pid) cleanup();
   });
   piece.addEventListener('lostpointercapture', function (e) {
-    // Extra safety net: if the browser drops pointer capture unexpectedly
-    // (can happen on iOS Safari during scroll conflicts), still clean up
-    // instead of leaving a stuck ghost/highlight behind.
     if (active && e.pointerId === pid) cleanup();
   });
 }
@@ -915,8 +1003,6 @@ function createPuzzleWidget(char, onSolved) {
     piece.style.borderColor = r.color;
     piece.innerHTML = thumb(r, r.color);
 
-    // Guard against a piece being processed twice (e.g. a stray duplicate
-    // drop event firing after the piece has already been placed).
     var alreadyPlaced = false;
 
     bindPointerDrag(piece, {
@@ -945,6 +1031,7 @@ function createPuzzleWidget(char, onSolved) {
           status.textContent = '🎉 完成！';
           slot.textContent = char;
           slot.classList.remove('hidden-answer');
+          celebrate(widget, target);
           if (onSolved) onSolved();
         } else {
           status.textContent = '';
